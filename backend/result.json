@@ -1,0 +1,30 @@
+{
+  "found": false,
+  "rank": null,
+  "total_posts": 6,
+  "url": null,
+  "message": "전체 6개 포스팅 중 브랜드 미발견",
+  "details": [
+    {
+      "rank": "1/6",
+      "url": "https://cafe.naver.com/move79/5884176?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6Im1vdmU3OSIsImFydGljbGVJZCI6NTg4NDE3NiwiaXNzdWVkQXQiOjE3NzI4ODI2MzIxNzN9.TGRMDU5OYsjmQjeAhRS8ITcK2o454S6k5LiooQQhj9U",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "2/6",
+      "url": "https://cafe.naver.com/move79/5894431?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6Im1vdmU3OSIsImFydGljbGVJZCI6NTg5NDQzMSwiaXNzdWVkQXQiOjE3NzI4ODI2MzIxNzN9.IZgU4aRE5CJLc7TK1gI3NqeQp7NGGJDhJdydOUOiZ68",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "3/6",
+      "url": "https://cafe.naver.com/gimhaezumma/2741557?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImdpbWhhZXp1bW1hIiwiYXJ0aWNsZUlkIjoyNzQxNTU3LCJpc3N1ZWRBdCI6MTc3Mjg4MjYzMjE3M30.DC7rNBnCMur8guXeX6WecCe0eeqel4mnxpUvPXouRlk",
+      "found": false,
+      "location": "—",
+      "error": null
+    }
+  ]
+}

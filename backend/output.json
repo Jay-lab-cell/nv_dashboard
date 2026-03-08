@@ -1,0 +1,47 @@
+{
+  "total": 6,
+  "results": [
+    {
+      "rank": "1/6",
+      "url": "https://cafe.naver.com/move79/5884176?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6Im1vdmU3OSIsImFydGljbGVJZCI6NTg4NDE3NiwiaXNzdWVkQXQiOjE3NzI4ODM3MTcwMTB9.M3eeJeS7VggUu1Z_92EQoS4vDmal43v0ul1pv1kJk7o",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "2/6",
+      "url": "https://cafe.naver.com/move79/5894431?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6Im1vdmU3OSIsImFydGljbGVJZCI6NTg5NDQzMSwiaXNzdWVkQXQiOjE3NzI4ODM3MTcwMTB9.McNcCis3TYMlXFQjMG6fYPZIBYrc_ZWFsCPtgXJ8DCI",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "3/6",
+      "url": "https://cafe.naver.com/gimhaezumma/2741557?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImdpbWhhZXp1bW1hIiwiYXJ0aWNsZUlkIjoyNzQxNTU3LCJpc3N1ZWRBdCI6MTc3Mjg4MzcxNzAxMH0.pusjzxRavHlfxhPVwbAm1P-Pwm__OufeJX_tI8njZEk",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "4/6",
+      "url": "https://cafe.naver.com/cantsb/3209971?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6ImNhbnRzYiIsImFydGljbGVJZCI6MzIwOTk3MSwiaXNzdWVkQXQiOjE3NzI4ODM3MTcwMTB9.tEQLTM39xWWS7TaKSA2jz6R301K_RXAhmokWDxxM8Iw",
+      "found": true,
+      "location": "댓글",
+      "error": null
+    },
+    {
+      "rank": "5/6",
+      "url": "https://cafe.naver.com/pusanmom/4227610?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6InB1c2FubW9tIiwiYXJ0aWNsZUlkIjo0MjI3NjEwLCJpc3N1ZWRBdCI6MTc3Mjg4MzcxNzAxMH0.5RNtHqcg9GK47NrvlehBSp0I03WK_qVpzCnqaZ7ree4",
+      "found": false,
+      "location": "—",
+      "error": null
+    },
+    {
+      "rank": "6/6",
+      "url": "https://cafe.naver.com/masanmam/7437155?art=ZXh0ZXJuYWwtc2VydmljZS1uYXZlci1zZWFyY2gtY2FmZS1wcg.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjYWZlVHlwZSI6IkNBRkVfVVJMIiwiY2FmZVVybCI6Im1hc2FubWFtIiwiYXJ0aWNsZUlkIjo3NDM3MTU1LCJpc3N1ZWRBdCI6MTc3Mjg4MzcxNzAxMH0.d1lfQM03HUSCAqGXu10YoshP1rvu6wrwoC18QLkJH7M",
+      "found": false,
+      "location": "—",
+      "error": null
+    }
+  ]
+}
