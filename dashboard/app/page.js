@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 
-// v3: Python FastAPI 백엔드 URL
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// 환경에 따라 API 기준 URL 자동 결정: 배포 환경(Vercel)은 상대경로('/')로 프록시 동작, 개발환경은 localhost:8000
+const API = process.env.NEXT_PUBLIC_API_URL !== undefined
+  ? process.env.NEXT_PUBLIC_API_URL
+  : (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
 
 // ===== Status Constants =====
 const STATUS = {
