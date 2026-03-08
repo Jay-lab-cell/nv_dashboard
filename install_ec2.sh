@@ -5,6 +5,18 @@ echo "🔄 시스템 업데이트 및 필요 패키지 설치..."
 sudo apt update -y
 sudo apt install -y git curl
 
+echo "💾 메모리 부족 방지를 위한 가상 메모리(Swap) 2GB 생성 중..."
+if [ ! -f /swapfile ]; then
+    sudo fallocate -l 2G /swapfile
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+    echo "✔️ Swap 메모리 생성 완료!"
+else
+    echo "✔️ Swap 메모리가 이미 설정되어 있습니다."
+fi
+
 # Docker 설치
 if ! command -v docker &> /dev/null
 then
