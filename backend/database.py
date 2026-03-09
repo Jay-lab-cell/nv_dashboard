@@ -5,7 +5,7 @@ asyncpg로 FastAPI 비동기 이벤트 루프와 완벽 통합.
 
 import os
 import asyncpg
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from loguru import logger
 from dotenv import load_dotenv
@@ -125,7 +125,7 @@ async def update_task(task_id: str, updates: dict) -> bool:
     """태스크 필드 업데이트."""
     if not updates:
         return False
-    updates["updated_at"] = datetime.now().isoformat()
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     sets = ", ".join(f"{k} = ${i+1}" for i, k in enumerate(updates.keys()))
     vals = list(updates.values())
     vals.append(task_id)  # parameter sequence id for WHERE 
@@ -186,11 +186,19 @@ async def get_logs(task_id: str, limit: int = 50) -> list[dict]:
 # ────────────── 유틸 ──────────────
 
 def _calc_countdown(task: dict) -> str | None:
-    """24시간 카운트다운 잔여 시간 계산."""
+    """24시간 카운트다운 잔여 시간 계산.
+
+    verified_at이 timezone 정보를 포함하면 그대로 사용하고,
+    naive datetime이면 UTC로 간주한다.
+    """
     if task.get("status") == "최초 노출" and task.get("verified_at"):
         try:
             verify_time = datetime.fromisoformat(task["verified_at"])
-            remaining = verify_time - datetime.now()
+            # naive datetime이면 UTC로 간주
+            if verify_time.tzinfo is None:
+                verify_time = verify_time.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            remaining = verify_time - now
             if remaining.total_seconds() > 0:
                 hours, rem = divmod(int(remaining.total_seconds()), 3600)
                 minutes = rem // 60

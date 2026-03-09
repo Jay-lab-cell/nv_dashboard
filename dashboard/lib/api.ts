@@ -191,6 +191,14 @@ export function subscribeToJob(
   onDone: () => void
 ): EventSource {
   const es = new EventSource(`${BASE_URL}/api/events/${jobId}`);
+  let completed = false;
+
+  const finish = () => {
+    if (completed) return;
+    completed = true;
+    onDone();
+    es.close();
+  };
 
   es.onmessage = (e) => {
     try {
@@ -198,16 +206,16 @@ export function subscribeToJob(
       onUpdate(data);
 
       if (data.status === "done" || data.status === "error") {
-        onDone();
-        es.close();
+        finish();
       }
     } catch {
       // ignore parse errors
     }
   };
 
+  // 연결 끊김 시에도 반드시 onDone 호출 → 오버레이가 닫힘
   es.onerror = () => {
-    es.close();
+    finish();
   };
 
   return es;

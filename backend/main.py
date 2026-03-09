@@ -10,7 +10,7 @@ import asyncio
 import json
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
@@ -115,7 +115,7 @@ async def create_tasks(body: TaskCreate):
     if len(keyword_list) > 50:
         raise HTTPException(400, "키워드는 최대 50개까지 등록 가능합니다.")
 
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     created = []
 
     for keyword in keyword_list:
@@ -170,11 +170,11 @@ async def update_task_route(body: dict):
 
     prev_status = task["status"]
     updates = dict(updates)
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     # '최초 노출'로 변경 시 24시간 후 검증 예약
     if updates.get("status") == "최초 노출":
-        verify_time = (datetime.now() + timedelta(hours=24)).isoformat()
+        verify_time = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
         updates["verified_at"] = verify_time
 
     await update_task(task_id, updates)
@@ -241,13 +241,13 @@ async def start_check_exposure(body: dict):
 async def _run_check_exposure(job_id: str, task: dict):
     _update_job(job_id, {"status": "running"})
     task_id = task["id"]
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     try:
         logger.info("최초 노출확인 시작: {} / {}", task["keyword"], task["brand"])
         result = await check_keyword_exposure(task["keyword"], task["brand"])
 
         if result["found"]:
-            verify_time = (datetime.now() + timedelta(hours=24)).isoformat()
+            verify_time = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
             await update_task(task_id, {
                 "status": "최초 노출",
                 "initial_rank": str(result["rank"]),
@@ -312,16 +312,16 @@ async def start_check_rank(body: dict):
 async def _run_check_rank(job_id: str, task: dict):
     _update_job(job_id, {"status": "running"})
     task_id = task["id"]
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     try:
         result = await check_keyword_exposure(task["keyword"], task["brand"])
         new_status = task["status"]
         log_message = ""
-        
+
         if result["found"]:
             if task["status"] == "미노출":
                 # 미노출 상태에서 노출된 경우 -> 최초 노출로 승격
-                verify_time = (datetime.now() + timedelta(hours=24)).isoformat()
+                verify_time = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
                 new_status = "최초 노출"
                 rank_display = str(result['rank'])
                 await update_task(task_id, {
@@ -371,13 +371,13 @@ async def stream_job_events(job_id: str):
     폴링(1초마다 GET) 대신 이 엔드포인트 하나로 대체.
     """
     async def generator():
-        max_wait = 120  # 최대 2분 대기
+        max_wait = 90  # 최대 90초 대기
         elapsed = 0
         while elapsed < max_wait:
             job = _get_job(job_id)
             if not job:
                 yield {"data": json.dumps({"status": "error", "error": "job not found"})}
-                break
+                return
 
             yield {"data": json.dumps({
                 "status": job["status"],
@@ -386,10 +386,19 @@ async def stream_job_events(job_id: str):
             })}
 
             if job["status"] in ("done", "error"):
-                break
+                return
 
-            await asyncio.sleep(0.5)
-            elapsed += 0.5
+            await asyncio.sleep(1)
+            elapsed += 1
+
+        # 타임아웃 시에도 종료 이벤트 전송 (프론트엔드가 정상 종료 처리 가능)
+        job = _get_job(job_id)
+        final_status = job["status"] if job else "error"
+        yield {"data": json.dumps({
+            "status": "done" if final_status == "done" else "error",
+            "result": job.get("result") if job else None,
+            "error": "검사 시간 초과" if final_status != "done" else None,
+        })}
 
     return EventSourceResponse(generator())
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { subscribeToJob } from "@/lib/api";
 
 interface JobInfo {
@@ -17,12 +17,35 @@ interface Props {
 
 export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
   const [infos, setInfos] = useState<Map<string, JobInfo>>(new Map());
+  const sourcesRef = useRef<Map<string, EventSource>>(new Map());
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  /** job 완료 처리: 오버레이 제거 + 콜백 호출 */
+  const completeJob = (jobId: string, taskId: string) => {
+    // 기존 타이머 정리
+    const timer = timersRef.current.get(jobId);
+    if (timer) clearTimeout(timer);
+    timersRef.current.delete(jobId);
+
+    // EventSource 정리
+    const es = sourcesRef.current.get(jobId);
+    if (es) es.close();
+    sourcesRef.current.delete(jobId);
+
+    // 2초 후 오버레이 제거
+    setTimeout(() => {
+      setInfos((prev) => {
+        const next = new Map(prev);
+        next.delete(jobId);
+        return next;
+      });
+      onJobComplete(taskId);
+    }, 2000);
+  };
 
   useEffect(() => {
-    const sources: EventSource[] = [];
-
     jobs.forEach(({ jobId, taskId }) => {
-      if (infos.has(jobId)) return;
+      if (infos.has(jobId) || sourcesRef.current.has(jobId)) return;
 
       setInfos((prev) =>
         new Map(prev).set(jobId, {
@@ -32,6 +55,12 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
           message: "크롤링 진행 중...",
         })
       );
+
+      // 프론트엔드 안전장치: 90초 후 자동 종료
+      const safetyTimer = setTimeout(() => {
+        completeJob(jobId, taskId);
+      }, 90_000);
+      timersRef.current.set(jobId, safetyTimer);
 
       const es = subscribeToJob(
         jobId,
@@ -58,25 +87,26 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
           );
         },
         () => {
-          setTimeout(() => {
-            setInfos((prev) => {
-              const next = new Map(prev);
-              next.delete(jobId);
-              return next;
-            });
-            onJobComplete(taskId);
-          }, 2000);
+          completeJob(jobId, taskId);
         }
       );
 
-      sources.push(es);
+      sourcesRef.current.set(jobId, es);
     });
 
     return () => {
-      sources.forEach((es) => es.close());
+      sourcesRef.current.forEach((es) => es.close());
+      sourcesRef.current.clear();
+      timersRef.current.forEach((t) => clearTimeout(t));
+      timersRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs]);
+
+  /** 수동 닫기 핸들러 */
+  const handleDismiss = (jobId: string, taskId: string) => {
+    completeJob(jobId, taskId);
+  };
 
   const items = Array.from(infos.values());
   if (items.length === 0) return null;
@@ -95,23 +125,34 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-white">검사 진행 중</span>
-            <span
-              className="text-xs px-2 py-0.5 rounded"
-              style={{
-                background:
-                  item.status === "done" ? "#05221620" : "#1e1e3a",
-                color:
-                  item.status === "done" ? "#10b981" : "#a5b4fc",
-              }}
-            >
-              {item.status === "running"
-                ? "진행 중"
-                : item.status === "done"
-                ? "완료"
-                : item.status === "error"
-                ? "오류"
-                : item.status}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className="text-xs px-2 py-0.5 rounded"
+                style={{
+                  background:
+                    item.status === "done" ? "#05221620" : "#1e1e3a",
+                  color:
+                    item.status === "done" ? "#10b981" : "#a5b4fc",
+                }}
+              >
+                {item.status === "running"
+                  ? "진행 중"
+                  : item.status === "done"
+                  ? "완료"
+                  : item.status === "error"
+                  ? "오류"
+                  : item.status}
+              </span>
+              {/* 닫기 버튼 */}
+              <button
+                onClick={() => handleDismiss(item.jobId, item.taskId)}
+                className="text-xs px-1 py-0.5 rounded hover:bg-white/10 transition-colors"
+                style={{ color: "#8B93A6" }}
+                title="닫기"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* 진행 바 */}

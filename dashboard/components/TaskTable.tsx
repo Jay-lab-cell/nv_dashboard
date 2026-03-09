@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Task, TaskStatus, tasksApi, exposureApi } from "@/lib/api";
 
 interface Props {
@@ -188,6 +188,24 @@ export default function TaskTable({
   );
 }
 
+/**
+ * verified_at으로부터 남은 시간을 실시간 계산한다.
+ * - timezone 정보가 있으면(+00:00 등) 그대로 파싱
+ * - naive string이면 프론트엔드 로컬 시간으로 해석 (기존 KST 데이터 호환)
+ */
+function calcCountdown(verifiedAt: string): string | null {
+  if (!verifiedAt) return null;
+  const target = new Date(verifiedAt);
+  if (isNaN(target.getTime())) return null;
+
+  const remaining = target.getTime() - Date.now();
+  if (remaining <= 0) return "만료됨";
+
+  const hours = Math.floor(remaining / (1000 * 60 * 60));
+  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+  return `${hours}시간 ${minutes}분`;
+}
+
 function TaskRow({
   task,
   isChecking,
@@ -199,6 +217,23 @@ function TaskRow({
   onCheck: () => void;
   onDelete: () => void;
 }) {
+  // 60초마다 카운트다운 실시간 업데이트
+  const [countdown, setCountdown] = useState<string | null>(
+    task.status === "최초 노출" ? calcCountdown(task.verified_at) : null
+  );
+
+  useEffect(() => {
+    if (task.status !== "최초 노출" || !task.verified_at) {
+      setCountdown(null);
+      return;
+    }
+    setCountdown(calcCountdown(task.verified_at));
+    const timer = setInterval(() => {
+      setCountdown(calcCountdown(task.verified_at));
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [task.status, task.verified_at]);
+
   const color = STATUS_COLOR[task.status] || STATUS_COLOR["미노출"];
   const bg = STATUS_BG[task.status] || STATUS_BG["미노출"];
   const label = STATUS_LABEL[task.status] || task.status;
@@ -257,10 +292,12 @@ function TaskRow({
         {rankDisplay}
       </td>
       <td
-        className="px-4 py-5 text-xs"
-        style={{ color: "#A0A5B5" }}
+        className="px-4 py-5 text-xs whitespace-nowrap"
+        style={{
+          color: countdown === "만료됨" ? "#EF4444" : "#A0A5B5",
+        }}
       >
-        {task.countdown_remaining || "-"}
+        {countdown || "-"}
       </td>
       <td className="px-4 py-5 max-w-[150px]">
         {task.url ? (
