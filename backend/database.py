@@ -6,14 +6,18 @@ asyncpg로 FastAPI 비동기 이벤트 루프와 완벽 통합.
 import os
 import asyncpg
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from loguru import logger
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("SUPABASE_URL")
+DATABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("SUPABASE_URL environment variable is not set. Please check your .env file.")
+    raise ValueError("SUPABASE_URL 또는 DATABASE_URL 환경변수가 설정되지 않았습니다.")
+
+# Supabase Transaction Pooler URL 파싱 (사용자명에 '.'이 포함되어 asyncpg DSN 파싱 실패 방지)
+_parsed = urlparse(DATABASE_URL)
 
 # asyncpg pool 객체
 pool = None
@@ -22,7 +26,16 @@ async def init_db():
     """데이터베이스 초기화 및 테이블/커넥션 풀 생성."""
     global pool
     try:
-        pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
+        pool = await asyncpg.create_pool(
+            host=_parsed.hostname,
+            port=_parsed.port or 6543,
+            user=_parsed.username,
+            password=_parsed.password,
+            database=_parsed.path.lstrip("/"),
+            min_size=1,
+            max_size=10,
+            statement_cache_size=0,  # Supabase Transaction Pooler 호환
+        )
         async with pool.acquire() as db:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS tasks (
