@@ -3,7 +3,9 @@
  * 모든 fetch는 이 모듈을 통해 집중화됩니다.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// next.config.mjs rewrites를 통해 /api/* → 백엔드로 프록시됨
+// HTTPS → HTTP mixed content 문제 방지를 위해 상대경로 사용
+const BASE_URL = "";
 
 // ── 타입 정의 ──────────────────────────────────────────────
 
