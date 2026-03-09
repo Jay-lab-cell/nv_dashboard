@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -38,6 +38,9 @@ env/
 !final_result.json
 !result.json
 !output.json
+!dashboard/package.json
+!dashboard/package-lock.json
+!dashboard/tsconfig.json
 *.html
 !frame.html
 
