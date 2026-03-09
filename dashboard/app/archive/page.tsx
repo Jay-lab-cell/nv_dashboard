@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { tasksApi, Task, KeywordStatus } from "@/lib/api";
+import { tasksApi, Task, TaskStatus } from "@/lib/api";
 
-const ARCHIVE_STATUSES: KeywordStatus[] = ["REPOST_SENT", "PAID"];
+const ARCHIVE_STATUSES: TaskStatus[] = ["정산 대기", "입금 완료"];
 
 interface GroupedByMonth {
   [month: string]: {
-    [cafe: string]: Task[];
+    [company: string]: Task[];
   };
 }
 
@@ -15,14 +15,15 @@ export default function ArchivePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    // REPOST_SENT, PAID 태스크 모두 로드
-    Promise.all(
-      ARCHIVE_STATUSES.map((s) => tasksApi.list({ status: s }))
-    )
-      .then((results) => setTasks(results.flat()))
+    // 전체 태스크 로드 후 정산 대기/입금 완료만 필터
+    tasksApi
+      .list()
+      .then((all) =>
+        setTasks(all.filter((t) => ARCHIVE_STATUSES.includes(t.status as TaskStatus)))
+      )
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -34,9 +35,10 @@ export default function ArchivePage() {
     tasks.forEach((task) => {
       const date = new Date(task.updated_at);
       const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const company = task.company || "미지정";
       if (!result[month]) result[month] = {};
-      if (!result[month][task.cafe_name]) result[month][task.cafe_name] = [];
-      result[month][task.cafe_name].push(task);
+      if (!result[month][company]) result[month][company] = [];
+      result[month][company].push(task);
     });
 
     return result;
@@ -48,16 +50,18 @@ export default function ArchivePage() {
 
   // 총 합계 계산
   const totalAmount = tasks
-    .filter((t) => t.status === "PAID")
-    .reduce((sum, t) => sum + (t.price || 0), 0);
+    .filter((t) => t.status === "입금 완료")
+    .reduce((sum, t) => sum + (parseInt(t.amount) || 0), 0);
 
   // 입금 완료 처리
   const handleMarkPaid = async (task: Task) => {
     setUpdatingId(task.id);
     try {
-      await tasksApi.update(task.id, { status: "PAID" });
+      await tasksApi.update(task.id, { status: "입금 완료" });
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: "PAID" } : t))
+        prev.map((t) =>
+          t.id === task.id ? { ...t, status: "입금 완료" as TaskStatus } : t
+        )
       );
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "상태 변경 실패");
@@ -84,7 +88,7 @@ export default function ArchivePage() {
         <div>
           <h1 className="text-xl font-semibold text-white">정산 아카이브</h1>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            재업 완료 및 입금 완료 태스크 현황
+            정산 대기 및 입금 완료 태스크 현황
           </p>
         </div>
 
@@ -122,7 +126,7 @@ export default function ArchivePage() {
         />
         <StatCard
           label="입금 완료"
-          value={`${tasks.filter((t) => t.status === "PAID").length}건`}
+          value={`${tasks.filter((t) => t.status === "입금 완료").length}건`}
           color="#10b981"
         />
         <StatCard
@@ -136,7 +140,11 @@ export default function ArchivePage() {
       {filteredMonths.length === 0 ? (
         <div
           className="text-center py-20 rounded-xl border"
-          style={{ background: "var(--card-bg)", borderColor: "var(--border)", color: "var(--muted)" }}
+          style={{
+            background: "var(--card-bg)",
+            borderColor: "var(--border)",
+            color: "var(--muted)",
+          }}
         >
           정산 데이터가 없습니다.
         </div>
@@ -145,7 +153,7 @@ export default function ArchivePage() {
           <MonthGroup
             key={month}
             month={month}
-            cafeGroups={grouped[month]}
+            companyGroups={grouped[month]}
             onMarkPaid={handleMarkPaid}
             updatingId={updatingId}
           />
@@ -155,7 +163,15 @@ export default function ArchivePage() {
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
+function StatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
   return (
     <div
       className="rounded-xl p-5 border"
@@ -173,19 +189,19 @@ function StatCard({ label, value, color }: { label: string; value: string; color
 
 function MonthGroup({
   month,
-  cafeGroups,
+  companyGroups,
   onMarkPaid,
   updatingId,
 }: {
   month: string;
-  cafeGroups: { [cafe: string]: Task[] };
+  companyGroups: { [company: string]: Task[] };
   onMarkPaid: (task: Task) => void;
-  updatingId: number | null;
+  updatingId: string | null;
 }) {
-  const monthTotal = Object.values(cafeGroups)
+  const monthTotal = Object.values(companyGroups)
     .flat()
-    .filter((t) => t.status === "PAID")
-    .reduce((s, t) => s + (t.price || 0), 0);
+    .filter((t) => t.status === "입금 완료")
+    .reduce((s, t) => s + (parseInt(t.amount) || 0), 0);
 
   return (
     <div
@@ -204,23 +220,30 @@ function MonthGroup({
       </div>
 
       {/* 업체별 목록 */}
-      {Object.entries(cafeGroups).map(([cafeName, tasks]) => {
-        const cafeTotal = tasks
-          .filter((t) => t.status === "PAID")
-          .reduce((s, t) => s + (t.price || 0), 0);
+      {Object.entries(companyGroups).map(([companyName, tasks]) => {
+        const companyTotal = tasks
+          .filter((t) => t.status === "입금 완료")
+          .reduce((s, t) => s + (parseInt(t.amount) || 0), 0);
 
         return (
-          <div key={cafeName} className="border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+          <div
+            key={companyName}
+            className="border-b last:border-0"
+            style={{ borderColor: "var(--border)" }}
+          >
             {/* 업체 헤더 */}
             <div
               className="px-5 py-2 flex items-center justify-between"
               style={{ background: "#0f0f22" }}
             >
-              <span className="text-sm font-medium" style={{ color: "#a5b4fc" }}>
-                {cafeName}
+              <span
+                className="text-sm font-medium"
+                style={{ color: "#a5b4fc" }}
+              >
+                {companyName}
               </span>
               <span className="text-xs" style={{ color: "var(--muted)" }}>
-                {tasks.length}건 / {cafeTotal.toLocaleString()}원
+                {tasks.length}건 / {companyTotal.toLocaleString()}원
               </span>
             </div>
 
@@ -236,12 +259,17 @@ function MonthGroup({
                     <td className="px-5 py-2.5" style={{ color: "#a5b4fc" }}>
                       {task.keyword}
                     </td>
-                    <td className="px-3 py-2.5" style={{ color: "var(--muted)" }}>
-                      {task.brand_name}
+                    <td
+                      className="px-3 py-2.5"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      {task.brand}
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      {task.price ? (
-                        <span className="text-white">{task.price.toLocaleString()}원</span>
+                      {task.amount ? (
+                        <span className="text-white">
+                          {parseInt(task.amount).toLocaleString()}원
+                        </span>
                       ) : (
                         <span style={{ color: "var(--muted)" }}>-</span>
                       )}
@@ -250,18 +278,29 @@ function MonthGroup({
                       <span
                         className="text-xs px-2 py-0.5 rounded"
                         style={{
-                          background: task.status === "PAID" ? "#05221620" : "#2d1a0020",
-                          color: task.status === "PAID" ? "#10b981" : "#f59e0b",
+                          background:
+                            task.status === "입금 완료"
+                              ? "#05221620"
+                              : "#2d1a0020",
+                          color:
+                            task.status === "입금 완료"
+                              ? "#10b981"
+                              : "#f59e0b",
                         }}
                       >
-                        {task.status === "PAID" ? "입금완료" : "재업완료"}
+                        {task.status === "입금 완료"
+                          ? "입금완료"
+                          : "정산대기"}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: "var(--muted)" }}>
+                    <td
+                      className="px-3 py-2.5 text-xs"
+                      style={{ color: "var(--muted)" }}
+                    >
                       {new Date(task.updated_at).toLocaleDateString("ko-KR")}
                     </td>
                     <td className="px-3 py-2.5">
-                      {task.status !== "PAID" && (
+                      {task.status !== "입금 완료" && (
                         <button
                           onClick={() => onMarkPaid(task)}
                           disabled={updatingId === task.id}

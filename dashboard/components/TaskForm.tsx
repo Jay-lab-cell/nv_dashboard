@@ -11,17 +11,16 @@ export default function TaskForm({ onCreated }: Props) {
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<TaskCreatePayload>({
-    cafe_name: "", // 업체에 매핑
-    cafe_url: "https://cafe.naver.com", // 기본값
     keywords: "",
-    brand_name: "",
-    price: 0,
-    note: "", // 담당자에 매핑
+    brand: "",
+    manager: "",
+    company: "",
+    amount: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.keywords || !form.brand_name) {
+    if (!form.keywords || !form.brand) {
       alert("키워드와 브랜드명을 입력하세요.");
       return;
     }
@@ -30,11 +29,10 @@ export default function TaskForm({ onCreated }: Props) {
     try {
       const created = await tasksApi.create({
         ...form,
-        cafe_name: form.cafe_name || "미지정",
-        cafe_url: form.cafe_url || "https://cafe.naver.com"
+        company: form.company || "미지정",
       });
       onCreated(created);
-      setForm({ cafe_name: "", cafe_url: "https://cafe.naver.com", keywords: "", brand_name: "", price: 0, note: "" });
+      setForm({ keywords: "", brand: "", manager: "", company: "", amount: "" });
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "등록 실패");
     } finally {
@@ -45,13 +43,21 @@ export default function TaskForm({ onCreated }: Props) {
   return (
     <div
       className="rounded-2xl overflow-hidden"
-      style={{ background: "#1C1E2B", padding: open ? "24px 32px" : "16px 24px" }}
+      style={{
+        background: "#1C1E2B",
+        padding: open ? "24px 32px" : "16px 24px",
+      }}
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-5 rounded-full" style={{ background: "#8B5CF6" }} />
-          <span className="font-bold text-white tracking-wide text-lg">키워드 등록</span>
+          <div
+            className="w-1 h-5 rounded-full"
+            style={{ background: "#8B5CF6" }}
+          />
+          <span className="font-bold text-white tracking-wide text-lg">
+            키워드 등록
+          </span>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -64,9 +70,15 @@ export default function TaskForm({ onCreated }: Props) {
 
       {/* 폼 본체 */}
       {open && (
-        <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col lg:flex-row gap-6"
+        >
           <div className="flex-1">
-            <label className="block text-xs font-medium mb-2" style={{ color: "#8B93A6" }}>
+            <label
+              className="block text-xs font-medium mb-2"
+              style={{ color: "#8B93A6" }}
+            >
               키워드 (줄바꿈으로 다중 입력)
             </label>
             <textarea
@@ -79,23 +91,29 @@ export default function TaskForm({ onCreated }: Props) {
 
           <div className="flex items-end gap-4 lg:w-[600px]">
             <div className="flex-1">
-              <label className="block text-xs font-medium mb-2" style={{ color: "#8B93A6" }}>
+              <label
+                className="block text-xs font-medium mb-2"
+                style={{ color: "#8B93A6" }}
+              >
                 브랜드명
               </label>
               <input
-                value={form.brand_name}
-                onChange={(e) => setForm({ ...form, brand_name: e.target.value })}
+                value={form.brand}
+                onChange={(e) => setForm({ ...form, brand: e.target.value })}
                 className="w-full bg-[#111116] border border-[#2D3142] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-[#8B5CF6] transition-colors"
               />
             </div>
 
             <div className="w-32">
-              <label className="block text-xs font-medium mb-2" style={{ color: "#8B93A6" }}>
+              <label
+                className="block text-xs font-medium mb-2"
+                style={{ color: "#8B93A6" }}
+              >
                 담당자
               </label>
               <select
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
+                value={form.manager}
+                onChange={(e) => setForm({ ...form, manager: e.target.value })}
                 className="w-full bg-[#111116] border border-[#2D3142] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-[#8B5CF6] transition-colors appearance-none"
               >
                 <option value="">선택</option>
@@ -105,12 +123,15 @@ export default function TaskForm({ onCreated }: Props) {
             </div>
 
             <div className="w-32">
-              <label className="block text-xs font-medium mb-2" style={{ color: "#8B93A6" }}>
+              <label
+                className="block text-xs font-medium mb-2"
+                style={{ color: "#8B93A6" }}
+              >
                 업체
               </label>
               <select
-                value={form.cafe_name}
-                onChange={(e) => setForm({ ...form, cafe_name: e.target.value })}
+                value={form.company}
+                onChange={(e) => setForm({ ...form, company: e.target.value })}
                 className="w-full bg-[#111116] border border-[#2D3142] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-[#8B5CF6] transition-colors appearance-none"
               >
                 <option value="">선택</option>

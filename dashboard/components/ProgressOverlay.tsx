@@ -3,62 +3,69 @@
 import { useEffect, useState } from "react";
 import { subscribeToJob } from "@/lib/api";
 
-interface JobProgress {
+interface JobInfo {
   jobId: string;
-  taskId: number;
+  taskId: string;
   status: string;
-  progress: number;
   message: string;
 }
 
 interface Props {
-  jobs: { jobId: string; taskId: number }[];
-  onJobComplete: (taskId: number) => void;
+  jobs: { jobId: string; taskId: string }[];
+  onJobComplete: (taskId: string) => void;
 }
 
 export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
-  const [progresses, setProgresses] = useState<Map<string, JobProgress>>(new Map());
+  const [infos, setInfos] = useState<Map<string, JobInfo>>(new Map());
 
   useEffect(() => {
     const sources: EventSource[] = [];
 
     jobs.forEach(({ jobId, taskId }) => {
-      if (progresses.has(jobId)) return; // 이미 구독 중
+      if (infos.has(jobId)) return;
 
-      // 초기 상태 설정
-      setProgresses((prev) =>
+      setInfos((prev) =>
         new Map(prev).set(jobId, {
           jobId,
           taskId,
-          status: "CHECKING",
-          progress: 0,
-          message: "연결 중...",
+          status: "running",
+          message: "크롤링 진행 중...",
         })
       );
 
       const es = subscribeToJob(
         jobId,
         (data) => {
-          setProgresses((prev) =>
+          let message = "크롤링 진행 중...";
+          if (data.status === "done") {
+            const result = data.result;
+            if (result?.found) {
+              message = `노출 발견! 순위: ${result.rank}`;
+            } else {
+              message = "미노출";
+            }
+          } else if (data.status === "error") {
+            message = `오류: ${data.error || "알 수 없는 오류"}`;
+          }
+
+          setInfos((prev) =>
             new Map(prev).set(jobId, {
               jobId,
-              taskId: data.task_id,
+              taskId,
               status: data.status,
-              progress: data.progress,
-              message: data.message,
+              message,
             })
           );
         },
         () => {
-          // 완료
           setTimeout(() => {
-            setProgresses((prev) => {
+            setInfos((prev) => {
               const next = new Map(prev);
               next.delete(jobId);
               return next;
             });
             onJobComplete(taskId);
-          }, 2000); // 2초 후 제거
+          }, 2000);
         }
       );
 
@@ -71,7 +78,7 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs]);
 
-  const items = Array.from(progresses.values());
+  const items = Array.from(infos.values());
   if (items.length === 0) return null;
 
   return (
@@ -87,21 +94,27 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
           }}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-white">
-              Task #{item.taskId} 검사 중
-            </span>
+            <span className="text-xs font-medium text-white">검사 진행 중</span>
             <span
               className="text-xs px-2 py-0.5 rounded"
               style={{
-                background: item.status === "EXPOSED" ? "#05221620" : "#1e1e3a",
-                color: item.status === "EXPOSED" ? "#10b981" : "#a5b4fc",
+                background:
+                  item.status === "done" ? "#05221620" : "#1e1e3a",
+                color:
+                  item.status === "done" ? "#10b981" : "#a5b4fc",
               }}
             >
-              {item.status}
+              {item.status === "running"
+                ? "진행 중"
+                : item.status === "done"
+                ? "완료"
+                : item.status === "error"
+                ? "오류"
+                : item.status}
             </span>
           </div>
 
-          {/* 진행률 바 */}
+          {/* 진행 바 */}
           <div
             className="w-full h-1.5 rounded-full overflow-hidden"
             style={{ background: "var(--border)" }}
@@ -109,11 +122,14 @@ export default function ProgressOverlay({ jobs, onJobComplete }: Props) {
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${item.progress}%`,
+                width:
+                  item.status === "done" || item.status === "error"
+                    ? "100%"
+                    : "60%",
                 background:
-                  item.status === "EXPOSED"
+                  item.status === "done"
                     ? "var(--success)"
-                    : item.status === "NOT_EXPOSED"
+                    : item.status === "error"
                     ? "var(--danger)"
                     : "var(--accent)",
               }}

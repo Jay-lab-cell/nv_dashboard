@@ -4,6 +4,7 @@ v2 Next.js의 모든 API 기능을 Python으로 재구현.
 폴링 방식 → SSE(Server-Sent Events)로 교체.
 """
 
+import os
 import uuid
 import asyncio
 import json
@@ -86,7 +87,12 @@ app = FastAPI(title="N_Mornitoring v3", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:9000", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:9000",
+        "http://localhost:3000",
+        *([os.environ["FRONTEND_URL"]] if os.environ.get("FRONTEND_URL") else []),
+        # Vercel 배포 시 FRONTEND_URL 환경변수 설정 필요
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

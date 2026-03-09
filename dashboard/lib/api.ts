@@ -4,93 +4,60 @@
  */
 
 // next.config.mjs rewrites를 통해 /api/* → 백엔드로 프록시됨
-// HTTPS → HTTP mixed content 문제 방지를 위해 상대경로 사용
 const BASE_URL = "";
 
 // ── 타입 정의 ──────────────────────────────────────────────
 
-export type KeywordStatus =
-  | "WAITING"
-  | "CHECKING"
-  | "EXPOSED"
-  | "CONFIRMED"
-  | "NOT_EXPOSED"
-  | "REPOST_NEEDED"
-  | "REPOST_SENT"
-  | "PAID";
+export type TaskStatus =
+  | "대기"
+  | "최초 노출"
+  | "미노출"
+  | "건바이 성공"
+  | "미노출 AS"
+  | "판단불가"
+  | "정산 대기"
+  | "입금 완료"
+  | "CHECKING"; // 프론트엔드 전용: 크롤링 진행 중 표시
 
 export interface Task {
-  id: number;
-  cafe_name: string;
-  cafe_url: string;
+  id: string;
   keyword: string;
-  brand_name: string;
-  price: number;
-  note: string;
-  status: KeywordStatus;
-  rank: number | null;
-  exposed_url: string | null;
+  brand: string;
+  manager: string;
+  company: string;
+  status: TaskStatus;
+  initial_rank: string;
+  current_rank: string;
+  amount: string;
+  url: string;
+  initial_url: string;
   created_at: string;
+  verified_at: string;
   updated_at: string;
-  checked_at: string | null;
-}
-
-export interface TaskLog {
-  id: number;
-  task_id: number;
-  status: KeywordStatus;
-  rank: number | null;
-  exposed_url: string | null;
-  message: string;
-  created_at: string;
-  cafe_name?: string;
-  keyword?: string;
+  countdown_remaining?: string | null;
 }
 
 export interface TaskCreatePayload {
-  cafe_name: string;
-  cafe_url: string;
   keywords: string;
-  brand_name: string;
-  price?: number;
-  note?: string;
-}
-
-export interface TaskUpdatePayload {
-  cafe_name?: string;
-  cafe_url?: string;
-  brand_name?: string;
-  price?: number;
-  note?: string;
-  status?: KeywordStatus;
+  brand: string;
+  manager: string;
+  company: string;
+  amount?: string;
 }
 
 export interface Summary {
   total: number;
-  WAITING: number;
-  CHECKING: number;
-  EXPOSED: number;
-  CONFIRMED: number;
-  NOT_EXPOSED: number;
-  REPOST_NEEDED: number;
-  REPOST_SENT: number;
-  PAID: number;
-}
-
-export interface CheckJob {
-  job_id: string;
-  task_id: number;
-  status: string;
-  keyword?: string;
-}
-
-export interface SchedulerStatus {
-  running: boolean;
-  enabled: boolean;
-  jobs: Array<{ id: string; name: string; next_run: string | null }>;
+  [status: string]: number;
 }
 
 // ── 공통 fetch 래퍼 ────────────────────────────────────────
+
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  jobId?: string;
+}
 
 async function apiFetch<T>(
   path: string,
@@ -106,7 +73,6 @@ async function apiFetch<T>(
     throw new Error(err.detail || `API 오류: ${res.status}`);
   }
 
-  // 204 No Content
   if (res.status === 204) return undefined as T;
 
   return res.json();
@@ -116,113 +82,133 @@ async function apiFetch<T>(
 
 export const tasksApi = {
   /** 태스크 목록 조회 */
-  list: (params?: { status?: string; cafe_name?: string }) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString();
-    return apiFetch<Task[]>(`/api/tasks${qs ? `?${qs}` : ""}`);
+  list: async (): Promise<Task[]> => {
+    const res = await apiFetch<ApiResponse<Task[]>>("/api/tasks");
+    return res.data || [];
   },
 
   /** 태스크 단건 조회 */
-  get: (id: number) => apiFetch<Task>(`/api/tasks/${id}`),
+  get: async (id: string): Promise<Task> => {
+    const tasks = await tasksApi.list();
+    const task = tasks.find((t) => t.id === id);
+    if (!task) throw new Error("태스크를 찾을 수 없습니다.");
+    return task;
+  },
 
   /** 태스크 생성 (다중 키워드 지원) */
-  create: (payload: TaskCreatePayload) =>
-    apiFetch<Task[]>("/api/tasks", {
+  create: async (payload: TaskCreatePayload): Promise<Task[]> => {
+    const res = await apiFetch<ApiResponse<Task[]>>("/api/tasks", {
       method: "POST",
       body: JSON.stringify(payload),
-    }),
+    });
+    return res.data || [];
+  },
 
   /** 태스크 수정 */
-  update: (id: number, payload: TaskUpdatePayload) =>
-    apiFetch<Task>(`/api/tasks/${id}`, {
+  update: async (
+    taskId: string,
+    updates: Record<string, string>,
+    changedBy = "USER"
+  ): Promise<void> => {
+    await apiFetch<ApiResponse>("/api/tasks", {
       method: "PUT",
-      body: JSON.stringify(payload),
-    }),
+      body: JSON.stringify({ taskId, updates, changedBy }),
+    });
+  },
 
   /** 태스크 삭제 */
-  delete: (id: number) =>
-    apiFetch<void>(`/api/tasks/${id}`, { method: "DELETE" }),
+  delete: async (taskId: string): Promise<void> => {
+    await apiFetch<ApiResponse>(
+      `/api/tasks?taskId=${encodeURIComponent(taskId)}`,
+      { method: "DELETE" }
+    );
+  },
 
-  /** 상태별 요약 통계 */
-  summary: () => apiFetch<Summary>("/api/tasks/stats/summary"),
-};
-
-// ── 로그 API ───────────────────────────────────────────────
-
-export const logsApi = {
-  /** 특정 태스크 로그 조회 */
-  byTask: (taskId: number, limit = 50) =>
-    apiFetch<TaskLog[]>(`/api/logs?task_id=${taskId}&limit=${limit}`),
-
-  /** 전체 최근 로그 */
-  recent: (limit = 100) =>
-    apiFetch<TaskLog[]>(`/api/logs/recent?limit=${limit}`),
+  /** 상태별 요약 통계 (클라이언트 계산) */
+  summary: async (): Promise<Summary> => {
+    const tasks = await tasksApi.list();
+    const summary: Summary = { total: tasks.length };
+    for (const task of tasks) {
+      summary[task.status] = (summary[task.status] || 0) + 1;
+    }
+    return summary;
+  },
 };
 
 // ── 노출 검사 API ──────────────────────────────────────────
 
 export const exposureApi = {
-  /** 단일 태스크 검사 트리거 → job_id 반환 */
-  check: (taskId: number) =>
-    apiFetch<CheckJob>(`/api/check-exposure/${taskId}`, { method: "POST" }),
-
-  /** 일괄 검사 → job 목록 반환 */
-  batchCheck: () =>
-    apiFetch<{ message: string; jobs: CheckJob[] }>("/api/check-exposure/batch", {
+  /** 최초 노출확인 (대기/미노출 상태용) */
+  check: async (taskId: string): Promise<{ jobId: string }> => {
+    const res = await apiFetch<ApiResponse>("/api/check-exposure", {
       method: "POST",
-    }),
+      body: JSON.stringify({ taskId }),
+    });
+    return { jobId: res.jobId! };
+  },
+
+  /** 현재 순위 확인 (이미 노출된 상태용) */
+  checkRank: async (taskId: string): Promise<{ jobId: string }> => {
+    const res = await apiFetch<ApiResponse>("/api/check-current-rank", {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    });
+    return { jobId: res.jobId! };
+  },
 };
 
-// ── 스케줄러 API ───────────────────────────────────────────
+// ── 로그 API ───────────────────────────────────────────────
 
-export const schedulerApi = {
-  /** 스케줄러 상태 조회 */
-  status: () => apiFetch<SchedulerStatus>("/api/scheduler/status"),
+export interface TaskLog {
+  id: string;
+  task_id: string;
+  prev_status: string;
+  new_status: string;
+  changed_by: string;
+  message: string;
+  created_at: string;
+}
 
-  /** 스케줄러 ON/OFF 토글 */
-  toggle: () =>
-    apiFetch<{ status: string; message: string }>("/api/scheduler/toggle", {
-      method: "POST",
-    }),
-
-  /** 즉시 전체 검사 실행 */
-  runNow: () =>
-    apiFetch<{ message: string }>("/api/scheduler/run-now", { method: "POST" }),
+export const logsApi = {
+  /** 특정 태스크 로그 조회 */
+  byTask: async (taskId: string): Promise<TaskLog[]> => {
+    const res = await apiFetch<ApiResponse<TaskLog[]>>(
+      `/api/logs?taskId=${encodeURIComponent(taskId)}`
+    );
+    return res.data || [];
+  },
 };
 
 // ── SSE 유틸 ──────────────────────────────────────────────
 
-/**
- * SSE 연결 생성 및 이벤트 구독
- * @param jobId - 구독할 job ID
- * @param onProgress - 진행 이벤트 콜백
- * @param onDone - 완료 콜백
- * @returns EventSource 인스턴스 (close()로 연결 해제)
- */
 export function subscribeToJob(
   jobId: string,
-  onProgress: (data: {
-    task_id: number;
+  onUpdate: (data: {
     status: string;
-    progress: number;
-    message: string;
+    result?: Record<string, unknown>;
+    error?: string;
   }) => void,
   onDone: () => void
 ): EventSource {
   const es = new EventSource(`${BASE_URL}/api/events/${jobId}`);
 
-  es.addEventListener("progress", (e) => {
-    const data = JSON.parse(e.data);
-    onProgress(data);
-  });
+  es.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      onUpdate(data);
 
-  es.addEventListener("done", () => {
-    onDone();
-    es.close();
-  });
+      if (data.status === "done" || data.status === "error") {
+        onDone();
+        es.close();
+      }
+    } catch {
+      // ignore parse errors
+    }
+  };
 
-  es.addEventListener("error", () => {
+  es.onerror = () => {
     es.close();
-  });
+  };
 
   return es;
 }

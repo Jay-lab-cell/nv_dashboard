@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { tasksApi, exposureApi, Task, Summary, KeywordStatus } from "@/lib/api";
+import { tasksApi, exposureApi, Task, Summary, TaskStatus } from "@/lib/api";
 import SummaryCards from "@/components/SummaryCards";
 import TaskForm from "@/components/TaskForm";
 import TaskTable from "@/components/TaskTable";
@@ -12,7 +12,9 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [filterStatus, setFilterStatus] = useState("total");
   const [loading, setLoading] = useState(true);
-  const [activeJobs, setActiveJobs] = useState<{ jobId: string; taskId: number }[]>([]);
+  const [activeJobs, setActiveJobs] = useState<
+    { jobId: string; taskId: string }[]
+  >([]);
 
   // 데이터 로드
   const loadData = useCallback(async () => {
@@ -41,12 +43,12 @@ export default function DashboardPage() {
   };
 
   // 검사 시작 콜백
-  const handleCheckStart = (jobId: string, taskId: number) => {
+  const handleCheckStart = (jobId: string, taskId: string) => {
     setActiveJobs((prev) => [...prev, { jobId, taskId }]);
   };
 
   // 상태 변경 콜백
-  const handleStatusChange = (taskId: number, newStatus: KeywordStatus) => {
+  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
     );
@@ -54,37 +56,22 @@ export default function DashboardPage() {
   };
 
   // 삭제 콜백
-  const handleDelete = (taskId: number) => {
+  const handleDelete = (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     tasksApi.summary().then(setSummary).catch(console.error);
   };
 
   // 작업 완료 콜백 (SSE 종료 후)
-  const handleJobComplete = (taskId: number) => {
-    // 완료된 태스크 최신 데이터 갱신
-    tasksApi.get(taskId).then((updated) => {
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
-    }).catch(console.error);
+  const handleJobComplete = (taskId: string) => {
+    tasksApi
+      .get(taskId)
+      .then((updated) => {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      })
+      .catch(console.error);
 
     tasksApi.summary().then(setSummary).catch(console.error);
-
     setActiveJobs((prev) => prev.filter((j) => j.taskId !== taskId));
-  };
-
-  // 일괄 검사
-  const handleBatchCheck = async () => {
-    try {
-      const result = await exposureApi.batchCheck();
-      result.jobs.forEach((job) => {
-        handleCheckStart(job.job_id, job.task_id);
-        handleStatusChange(job.task_id, "CHECKING");
-      });
-      if (result.jobs.length === 0) {
-        alert("검사할 태스크가 없습니다.");
-      }
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "일괄 검사 실패");
-    }
   };
 
   if (loading) {
@@ -92,7 +79,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div
           className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
+          style={{
+            borderColor: "var(--accent)",
+            borderTopColor: "transparent",
+          }}
         />
       </div>
     );
@@ -112,16 +102,12 @@ export default function DashboardPage() {
 
       {/* 액션 바 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <h2
+          className="text-sm font-medium"
+          style={{ color: "var(--muted)" }}
+        >
           태스크 목록 ({tasks.length}개)
         </h2>
-        <button
-          onClick={handleBatchCheck}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-          style={{ background: "var(--accent-blue)" }}
-        >
-          전체 검사
-        </button>
       </div>
 
       {/* 태스크 테이블 */}
